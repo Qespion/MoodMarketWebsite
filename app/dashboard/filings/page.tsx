@@ -3,11 +3,18 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useFilings } from '@/hooks/use-api';
-import { Calendar, Brain, ExternalLink, FileText, Filter } from 'lucide-react';
+import { useFilings, useAnalyses } from '@/hooks/use-api';
+import { Calendar, Brain, ExternalLink, FileText, Filter, TrendingUp, TrendingDown, X } from 'lucide-react';
 import { useState } from 'react';
 import Link from 'next/link';
-import type { Filing } from '@/types/api';
+import type { Filing, Analysis } from '@/types/api';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -20,6 +27,8 @@ export default function FilingsPage() {
   const [filingType, setFilingType] = useState<string>('all');
   const [hasAnalysis, setHasAnalysis] = useState<string>('all');
   const [page, setPage] = useState(1);
+  const [selectedFilingId, setSelectedFilingId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const { data, isLoading } = useFilings({
     page,
@@ -28,8 +37,25 @@ export default function FilingsPage() {
     has_analysis: hasAnalysis === 'true' ? true : hasAnalysis === 'false' ? false : undefined,
   });
 
+  const { data: analysesData, isLoading: analysesLoading } = useAnalyses({
+    filing_id: selectedFilingId || undefined,
+  });
+
   const filings = data?.data || [];
   const pagination = data?.pagination;
+  const selectedAnalysis = analysesData?.data?.[0];
+  
+  const getInvestmentSignal = (analysis: Analysis | undefined) => {
+    return analysis?.investment_signal || analysis?.analysis_data?.investment_signal;
+  };
+
+  const getMetadata = (analysis: Analysis | undefined) => {
+    return analysis?.metadata || analysis?.analysis_data?.metadata;
+  };
+
+  const getExecutiveSummary = (analysis: Analysis | undefined) => {
+    return analysis?.analysis_data?.executive_summary;
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -38,6 +64,33 @@ export default function FilingsPage() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const getRecommendationColor = (recommendation?: string) => {
+    switch (recommendation) {
+      case 'strong_buy':
+        return 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20';
+      case 'buy':
+        return 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20';
+      case 'hold':
+        return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20';
+      case 'sell':
+        return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
+      case 'strong_sell':
+        return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
+      default:
+        return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20';
+    }
+  };
+
+  const formatRecommendation = (rec?: string) => {
+    if (!rec) return 'N/A';
+    return rec.replace('_', ' ').toUpperCase();
+  };
+
+  const handleViewAnalysis = (filingId: number) => {
+    setSelectedFilingId(filingId);
+    setIsModalOpen(true);
   };
 
   return (
@@ -192,12 +245,10 @@ export default function FilingsPage() {
 
                   <div className="flex items-center justify-end gap-2 pt-4 border-t">
                     {filing.has_analysis && (
-                      <Link href={`/dashboard/companies/${filing.ticker}`}>
-                        <Button variant="default" size="sm">
-                          <Brain className="mr-2 h-4 w-4" />
-                          View Analysis
-                        </Button>
-                      </Link>
+                      <Button variant="default" size="sm" onClick={() => handleViewAnalysis(filing.id)}>
+                        <Brain className="mr-2 h-4 w-4" />
+                        View Analysis
+                      </Button>
                     )}
                     <a href={filing.filing_url} target="_blank" rel="noopener noreferrer">
                       <Button variant="outline" size="sm">
@@ -234,6 +285,245 @@ export default function FilingsPage() {
           )}
         </>
       )}
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedAnalysis ? (
+                <div className="flex items-center gap-2">
+                  <span>{selectedAnalysis.ticker || getMetadata(selectedAnalysis)?.ticker}</span>
+                  <Badge variant="outline">
+                    {selectedAnalysis.filing_type || getMetadata(selectedAnalysis)?.filing_type}
+                  </Badge>
+                  {getMetadata(selectedAnalysis)?.fiscal_year && (
+                    <Badge variant="secondary">
+                      FY{getMetadata(selectedAnalysis)?.fiscal_year}
+                      {getMetadata(selectedAnalysis)?.fiscal_quarter && ` Q${getMetadata(selectedAnalysis)?.fiscal_quarter}`}
+                    </Badge>
+                  )}
+                  <Badge
+                    className={`${getRecommendationColor(getInvestmentSignal(selectedAnalysis)?.recommendation)} text-sm px-3 py-1`}
+                  >
+                    {formatRecommendation(getInvestmentSignal(selectedAnalysis)?.recommendation)}
+                  </Badge>
+                </div>
+              ) : (
+                'Analysis'
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedAnalysis?.company_title || selectedAnalysis?.company?.title}
+            </DialogDescription>
+          </DialogHeader>
+
+          {analysesLoading ? (
+            <div className="space-y-4 py-8">
+              <div className="h-20 animate-pulse bg-muted rounded-lg" />
+              <div className="h-40 animate-pulse bg-muted rounded-lg" />
+              <div className="h-40 animate-pulse bg-muted rounded-lg" />
+            </div>
+          ) : selectedAnalysis ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {getInvestmentSignal(selectedAnalysis)?.overall_score !== undefined && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Overall Score</p>
+                    <div className="flex items-center gap-1">
+                      {getInvestmentSignal(selectedAnalysis)!.overall_score! >= 50 ? (
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className="text-lg font-bold">
+                        {getInvestmentSignal(selectedAnalysis)!.overall_score}/100
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {getInvestmentSignal(selectedAnalysis)?.confidence_pct !== undefined && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Confidence</p>
+                    <p className="text-lg font-bold">
+                      {getInvestmentSignal(selectedAnalysis)!.confidence_pct}%
+                    </p>
+                  </div>
+                )}
+                {getInvestmentSignal(selectedAnalysis)?.risk_level && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Risk Level</p>
+                    <p className="text-lg font-bold capitalize">
+                      {getInvestmentSignal(selectedAnalysis)!.risk_level}
+                    </p>
+                  </div>
+                )}
+                {getInvestmentSignal(selectedAnalysis)?.financial_health_score !== undefined && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Financial Health</p>
+                    <p className="text-lg font-bold">
+                      {getInvestmentSignal(selectedAnalysis)!.financial_health_score}/100
+                    </p>
+                  </div>
+                )}
+                {(selectedAnalysis.filing_date || selectedAnalysis.created_at) && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Filing Date</p>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        {formatDate(selectedAnalysis.filing_date || selectedAnalysis.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {(getInvestmentSignal(selectedAnalysis)?.target_timeframe || getInvestmentSignal(selectedAnalysis)?.valuation_assessment || getInvestmentSignal(selectedAnalysis)?.event_significance) && (
+                <div className="grid grid-cols-3 gap-4 border-t pt-4">
+                  {getInvestmentSignal(selectedAnalysis)?.target_timeframe && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Target Timeframe</p>
+                      <p className="text-sm font-medium">{getInvestmentSignal(selectedAnalysis)!.target_timeframe}</p>
+                    </div>
+                  )}
+                  {getInvestmentSignal(selectedAnalysis)?.valuation_assessment && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Valuation</p>
+                      <p className="text-sm font-medium capitalize">{getInvestmentSignal(selectedAnalysis)!.valuation_assessment.replace('_', ' ')}</p>
+                    </div>
+                  )}
+                  {getInvestmentSignal(selectedAnalysis)?.event_significance && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Event Significance</p>
+                      <p className="text-sm font-medium capitalize">{getInvestmentSignal(selectedAnalysis)!.event_significance}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {getInvestmentSignal(selectedAnalysis)?.investment_thesis && (
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-2">Investment Thesis</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {getInvestmentSignal(selectedAnalysis)!.investment_thesis}
+                  </p>
+                </div>
+              )}
+
+              {getExecutiveSummary(selectedAnalysis) && (
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-2">Executive Summary</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {getExecutiveSummary(selectedAnalysis)}
+                  </p>
+                </div>
+              )}
+
+              {getInvestmentSignal(selectedAnalysis)?.strengths && getInvestmentSignal(selectedAnalysis)!.strengths!.length > 0 && (
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400">
+                    Strengths
+                  </h4>
+                  <ul className="space-y-1">
+                    {getInvestmentSignal(selectedAnalysis)!.strengths!.map((strength: string, idx: number) => (
+                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-green-600 dark:text-green-400 mt-1">✓</span>
+                        <span>{strength}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {getInvestmentSignal(selectedAnalysis)?.weaknesses && getInvestmentSignal(selectedAnalysis)!.weaknesses!.length > 0 && (
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-2 text-orange-600 dark:text-orange-400">
+                    Weaknesses
+                  </h4>
+                  <ul className="space-y-1">
+                    {getInvestmentSignal(selectedAnalysis)!.weaknesses!.map((weakness: string, idx: number) => (
+                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-orange-600 dark:text-orange-400 mt-1">!</span>
+                        <span>{weakness}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {getInvestmentSignal(selectedAnalysis)?.key_catalysts && getInvestmentSignal(selectedAnalysis)!.key_catalysts!.length > 0 && (
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-2 text-blue-600 dark:text-blue-400">
+                    Key Catalysts
+                  </h4>
+                  <ul className="space-y-1">
+                    {getInvestmentSignal(selectedAnalysis)!.key_catalysts!.map((catalyst: string, idx: number) => (
+                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-blue-600 dark:text-blue-400 mt-1">▲</span>
+                        <span>{catalyst}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {getInvestmentSignal(selectedAnalysis)?.key_risks && getInvestmentSignal(selectedAnalysis)!.key_risks!.length > 0 && (
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400">
+                    Key Risks
+                  </h4>
+                  <ul className="space-y-1">
+                    {getInvestmentSignal(selectedAnalysis)!.key_risks!.map((risk: string, idx: number) => (
+                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-red-600 dark:text-red-400 mt-1">⚠</span>
+                        <span>{risk}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {getInvestmentSignal(selectedAnalysis)?.key_drivers &&
+                getInvestmentSignal(selectedAnalysis)!.key_drivers!.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400">
+                      Key Drivers
+                    </h4>
+                    <ul className="space-y-1">
+                      {getInvestmentSignal(selectedAnalysis)!.key_drivers!.map((driver: string, idx: number) => (
+                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-green-600 dark:text-green-400 mt-1">•</span>
+                          <span>{driver}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+              {getInvestmentSignal(selectedAnalysis)?.concerns &&
+                getInvestmentSignal(selectedAnalysis)!.concerns!.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400">
+                      Concerns
+                    </h4>
+                    <ul className="space-y-1">
+                      {getInvestmentSignal(selectedAnalysis)!.concerns!.map((concern: string, idx: number) => (
+                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-red-600 dark:text-red-400 mt-1">•</span>
+                          <span>{concern}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">
+              <p>No analysis data available</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
