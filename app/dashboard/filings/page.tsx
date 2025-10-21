@@ -365,13 +365,13 @@ export default function FilingsPage() {
                     </p>
                   </div>
                 )}
-                {(selectedAnalysis.filing_date || selectedAnalysis.created_at) && (
+                {(getMetadata(selectedAnalysis)?.filing_date || selectedAnalysis.filing_date || selectedAnalysis.created_at) && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Filing Date</p>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium">
-                        {formatDate(selectedAnalysis.filing_date || selectedAnalysis.created_at)}
+                        {formatDate(getMetadata(selectedAnalysis)?.filing_date || selectedAnalysis.filing_date || selectedAnalysis.created_at)}
                       </span>
                     </div>
                   </div>
