@@ -103,7 +103,7 @@ export const useSearch = (query: string) => {
   });
 };
 
-export const useTrendingCompanies = (params?: { limit?: number; days?: number }) => {
+export const useTrendingCompanies = (params?: { limit?: number; period?: string }) => {
   return useQuery({
     queryKey: ['trending', 'companies', params],
     queryFn: () => trendingApi.getCompanies(params).then((res) => res.data),

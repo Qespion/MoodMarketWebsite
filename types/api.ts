@@ -30,12 +30,21 @@ export interface Filing {
 export interface InvestmentSignal {
   recommendation: 'buy' | 'hold' | 'sell' | 'strong_buy' | 'strong_sell';
   confidence_pct: number;
-  overall_score: number;
+  overall_score?: number;
   risk_level?: string;
   price_target?: number;
   timeframe?: string;
   key_drivers?: string[];
   concerns?: string[];
+  strengths?: string[];
+  weaknesses?: string[];
+  key_catalysts?: string[];
+  key_risks?: string[];
+  investment_thesis?: string;
+  target_timeframe?: string;
+  valuation_assessment?: string;
+  financial_health_score?: number;
+  event_significance?: string;
 }
 
 export interface FinancialSnapshot {
@@ -164,20 +173,30 @@ export interface CursorPaginatedResponse<T> {
 }
 
 export interface DashboardStats {
-  companies_count: number;
-  filings_count: number;
-  analyses_count: number;
-  latest_analyses: Analysis[];
-  recent_filings: Filing[];
+  companies: {
+    total: number;
+    with_recent_filings: number;
+  };
+  filings: {
+    total: number;
+    by_type: Record<string, number>;
+    last_24h: number;
+  };
+  analyses: {
+    total: number;
+    by_recommendation: Record<string, number>;
+  };
 }
 
 export interface TrendingCompany {
+  company_id: number;
   ticker: string;
   company_title: string;
-  analyses_count: number;
-  latest_recommendation?: string;
-  avg_confidence?: number;
-  avg_score?: number;
+  analysis_count: number;
+  latest_recommendation: string | null;
+  avg_confidence: number | null;
+  avg_score: number | null;
+  latest_analysis_date: string | null;
 }
 
 export interface SearchResult {

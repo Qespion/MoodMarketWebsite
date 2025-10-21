@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useLatestAnalyses } from '@/hooks/use-api';
-import { Brain, TrendingUp, TrendingDown, Calendar, ArrowDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, ArrowDown } from 'lucide-react';
 import type { Analysis } from '@/types/api';
 
 export default function AnalysesPage() {
@@ -61,7 +61,6 @@ export default function AnalysesPage() {
       ) : analyses.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Brain className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No analyses found</h3>
             <p className="text-sm text-muted-foreground">
               Check back later for new AI-powered insights
@@ -78,15 +77,15 @@ export default function AnalysesPage() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-xl">
-                          {analysis.ticker || analysis.metadata?.ticker}
+                          {analysis.ticker || analysis.analysis_data?.metadata?.ticker}
                         </CardTitle>
                         <Badge variant="outline">
-                          {analysis.filing_type || analysis.metadata?.filing_type}
+                          {analysis.filing_type || analysis.analysis_data?.metadata?.filing_type}
                         </Badge>
-                        {analysis.metadata?.fiscal_year && (
+                        {analysis.analysis_data?.metadata?.fiscal_year && (
                           <Badge variant="secondary">
-                            FY{analysis.metadata.fiscal_year}
-                            {analysis.metadata.fiscal_quarter && ` Q${analysis.metadata.fiscal_quarter}`}
+                            FY{analysis.analysis_data.metadata.fiscal_year}
+                            {analysis.analysis_data.metadata.fiscal_quarter && ` Q${analysis.analysis_data.metadata.fiscal_quarter}`}
                           </Badge>
                         )}
                       </div>
@@ -96,56 +95,98 @@ export default function AnalysesPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge
-                        className={`${getRecommendationColor(analysis.investment_signal?.recommendation)} text-sm px-3 py-1`}
+                        className={`${getRecommendationColor(analysis.analysis_data?.investment_signal?.recommendation)} text-sm px-3 py-1`}
                       >
-                        {formatRecommendation(analysis.investment_signal?.recommendation)}
+                        {formatRecommendation(analysis.analysis_data?.investment_signal?.recommendation)}
                       </Badge>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Overall Score</p>
-                      <div className="flex items-center gap-1">
-                        {analysis.investment_signal?.overall_score !== undefined && (
-                          <>
-                            {analysis.investment_signal.overall_score >= 50 ? (
-                              <TrendingUp className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <TrendingDown className="h-4 w-4 text-red-600" />
-                            )}
-                            <span className="text-lg font-bold">
-                              {analysis.investment_signal.overall_score}/100
-                            </span>
-                          </>
-                        )}
+                    {analysis.analysis_data?.investment_signal?.overall_score !== undefined && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Overall Score</p>
+                        <div className="flex items-center gap-1">
+                          {analysis.analysis_data.investment_signal.overall_score >= 50 ? (
+                            <TrendingUp className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4 text-red-600" />
+                          )}
+                          <span className="text-lg font-bold">
+                            {analysis.analysis_data.investment_signal.overall_score}/100
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Confidence</p>
-                      <p className="text-lg font-bold">
-                        {analysis.investment_signal?.confidence_pct
-                          ? `${analysis.investment_signal.confidence_pct}%`
-                          : 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Risk Level</p>
-                      <p className="text-lg font-bold capitalize">
-                        {analysis.investment_signal?.risk_level || 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Filing Date</p>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">
-                          {formatDate(analysis.filing_date)}
-                        </span>
+                    )}
+                    {analysis.analysis_data?.investment_signal?.confidence_pct !== undefined && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Confidence</p>
+                        <p className="text-lg font-bold">
+                          {analysis.analysis_data.investment_signal.confidence_pct}%
+                        </p>
                       </div>
-                    </div>
+                    )}
+                    {analysis.analysis_data?.investment_signal?.risk_level && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Risk Level</p>
+                        <p className="text-lg font-bold capitalize">
+                          {analysis.analysis_data.investment_signal.risk_level}
+                        </p>
+                      </div>
+                    )}
+                    {analysis.analysis_data?.investment_signal?.financial_health_score !== undefined && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Financial Health</p>
+                        <p className="text-lg font-bold">
+                          {analysis.analysis_data.investment_signal.financial_health_score}/100
+                        </p>
+                      </div>
+                    )}
+                    {analysis.filing_date && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Filing Date</p>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">
+                            {formatDate(analysis.filing_date)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
+
+                  {(analysis.analysis_data?.investment_signal?.target_timeframe || analysis.analysis_data?.investment_signal?.valuation_assessment || analysis.analysis_data?.investment_signal?.event_significance) && (
+                    <div className="grid grid-cols-3 gap-4 border-t pt-4">
+                      {analysis.analysis_data.investment_signal.target_timeframe && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Target Timeframe</p>
+                          <p className="text-sm font-medium">{analysis.analysis_data.investment_signal.target_timeframe}</p>
+                        </div>
+                      )}
+                      {analysis.analysis_data.investment_signal.valuation_assessment && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Valuation</p>
+                          <p className="text-sm font-medium capitalize">{analysis.analysis_data.investment_signal.valuation_assessment.replace('_', ' ')}</p>
+                        </div>
+                      )}
+                      {analysis.analysis_data.investment_signal.event_significance && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Event Significance</p>
+                          <p className="text-sm font-medium capitalize">{analysis.analysis_data.investment_signal.event_significance}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {analysis.analysis_data?.investment_signal?.investment_thesis && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold mb-2">Investment Thesis</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {analysis.analysis_data.investment_signal.investment_thesis}
+                      </p>
+                    </div>
+                  )}
 
                   {analysis.analysis_data?.executive_summary && (
                     <div className="border-t pt-4">
@@ -156,14 +197,78 @@ export default function AnalysesPage() {
                     </div>
                   )}
 
-                  {analysis.investment_signal?.key_drivers &&
-                    analysis.investment_signal.key_drivers.length > 0 && (
+                  {analysis.analysis_data?.investment_signal?.strengths && analysis.analysis_data.investment_signal.strengths.length > 0 && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400">
+                        Strengths
+                      </h4>
+                      <ul className="space-y-1">
+                        {analysis.analysis_data.investment_signal.strengths.map((strength: string, idx: number) => (
+                          <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                            <span className="text-green-600 dark:text-green-400 mt-1">✓</span>
+                            <span>{strength}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {analysis.analysis_data?.investment_signal?.weaknesses && analysis.analysis_data.investment_signal.weaknesses.length > 0 && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold mb-2 text-orange-600 dark:text-orange-400">
+                        Weaknesses
+                      </h4>
+                      <ul className="space-y-1">
+                        {analysis.analysis_data.investment_signal.weaknesses.map((weakness: string, idx: number) => (
+                          <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                            <span className="text-orange-600 dark:text-orange-400 mt-1">!</span>
+                            <span>{weakness}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {analysis.analysis_data?.investment_signal?.key_catalysts && analysis.analysis_data.investment_signal.key_catalysts.length > 0 && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold mb-2 text-blue-600 dark:text-blue-400">
+                        Key Catalysts
+                      </h4>
+                      <ul className="space-y-1">
+                        {analysis.analysis_data.investment_signal.key_catalysts.map((catalyst: string, idx: number) => (
+                          <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                            <span className="text-blue-600 dark:text-blue-400 mt-1">▲</span>
+                            <span>{catalyst}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {analysis.analysis_data?.investment_signal?.key_risks && analysis.analysis_data.investment_signal.key_risks.length > 0 && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400">
+                        Key Risks
+                      </h4>
+                      <ul className="space-y-1">
+                        {analysis.analysis_data.investment_signal.key_risks.map((risk: string, idx: number) => (
+                          <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                            <span className="text-red-600 dark:text-red-400 mt-1">⚠</span>
+                            <span>{risk}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {analysis.analysis_data?.investment_signal?.key_drivers &&
+                    analysis.analysis_data.investment_signal.key_drivers.length > 0 && (
                       <div className="border-t pt-4">
                         <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400">
                           Key Drivers
                         </h4>
                         <ul className="space-y-1">
-                          {analysis.investment_signal.key_drivers.slice(0, 3).map((driver, idx) => (
+                          {analysis.analysis_data.investment_signal.key_drivers.map((driver: string, idx: number) => (
                             <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                               <span className="text-green-600 dark:text-green-400 mt-1">•</span>
                               <span>{driver}</span>
@@ -173,14 +278,14 @@ export default function AnalysesPage() {
                       </div>
                     )}
 
-                  {analysis.investment_signal?.concerns &&
-                    analysis.investment_signal.concerns.length > 0 && (
+                  {analysis.analysis_data?.investment_signal?.concerns &&
+                    analysis.analysis_data.investment_signal.concerns.length > 0 && (
                       <div className="border-t pt-4">
                         <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400">
                           Concerns
                         </h4>
                         <ul className="space-y-1">
-                          {analysis.investment_signal.concerns.slice(0, 3).map((concern, idx) => (
+                          {analysis.analysis_data.investment_signal.concerns.map((concern: string, idx: number) => (
                             <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                               <span className="text-red-600 dark:text-red-400 mt-1">•</span>
                               <span>{concern}</span>
@@ -190,14 +295,7 @@ export default function AnalysesPage() {
                       </div>
                     )}
 
-                  <div className="flex items-center justify-between pt-4 border-t">
-                    <div className="text-xs text-muted-foreground flex items-center gap-2">
-                      <Brain className="h-3 w-3" />
-                      <span>Analyzed with {analysis.model_used}</span>
-                      {analysis.tokens_used && (
-                        <span className="ml-2">• {analysis.tokens_used.toLocaleString()} tokens</span>
-                      )}
-                    </div>
+                  <div className="flex items-center justify-end pt-4 border-t">
                     <Button variant="outline" size="sm">
                       View Details
                     </Button>

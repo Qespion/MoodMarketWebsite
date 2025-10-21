@@ -117,7 +117,7 @@ export const analysesApi = {
 };
 
 export const dashboardApi = {
-  getStats: () => apiClient.get<DashboardStats>('/dashboard/stats'),
+  getStats: () => apiClient.get<DashboardStats>('/dashboard'),
 };
 
 export const searchApi = {
@@ -126,7 +126,7 @@ export const searchApi = {
 };
 
 export const trendingApi = {
-  getCompanies: (params?: { limit?: number; days?: number }) =>
+  getCompanies: (params?: { limit?: number; period?: string }) =>
     apiClient.get<TrendingCompany[]>('/trending/companies', { params }),
 };
 

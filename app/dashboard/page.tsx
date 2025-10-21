@@ -3,14 +3,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useDashboardStats, useTrendingCompanies } from '@/hooks/use-api';
+import { useDashboardStats, useTrendingCompanies, useLatestAnalyses } from '@/hooks/use-api';
 import { TrendingUp, TrendingDown, Building2, FileText, Brain, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import type { Analysis } from '@/types/api';
 
 export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
-  const { data: trending, isLoading: trendingLoading } = useTrendingCompanies({ limit: 5, days: 7 });
+  const { data: trending, isLoading: trendingLoading } = useTrendingCompanies({ limit: 5, period: '7d' });
+  const { data: latestAnalysesData, isLoading: analysesLoading } = useLatestAnalyses(5);
+  const latestAnalyses = latestAnalysesData?.pages[0]?.data || [];
 
   const getRecommendationColor = (recommendation?: string) => {
     switch (recommendation) {
@@ -53,7 +55,7 @@ export default function DashboardPage() {
             {statsLoading ? (
               <div className="h-7 w-20 animate-pulse bg-muted rounded" />
             ) : (
-              <div className="text-2xl font-bold">{stats?.companies_count.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{stats?.companies.total.toLocaleString()}</div>
             )}
           </CardContent>
         </Card>
@@ -67,7 +69,7 @@ export default function DashboardPage() {
             {statsLoading ? (
               <div className="h-7 w-20 animate-pulse bg-muted rounded" />
             ) : (
-              <div className="text-2xl font-bold">{stats?.filings_count.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{stats?.filings.total.toLocaleString()}</div>
             )}
           </CardContent>
         </Card>
@@ -81,7 +83,7 @@ export default function DashboardPage() {
             {statsLoading ? (
               <div className="h-7 w-20 animate-pulse bg-muted rounded" />
             ) : (
-              <div className="text-2xl font-bold">{stats?.analyses_count.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{stats?.analyses.total.toLocaleString()}</div>
             )}
           </CardContent>
         </Card>
@@ -94,24 +96,24 @@ export default function DashboardPage() {
             <CardDescription>Most recent AI-powered SEC filing analyses</CardDescription>
           </CardHeader>
           <CardContent>
-            {statsLoading ? (
+            {analysesLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="h-16 animate-pulse bg-muted rounded" />
                 ))}
               </div>
-            ) : stats?.latest_analyses && stats.latest_analyses.length > 0 ? (
+            ) : latestAnalyses && latestAnalyses.length > 0 ? (
               <div className="space-y-3">
-                {stats.latest_analyses.slice(0, 5).map((analysis: Analysis) => (
+                {latestAnalyses.slice(0, 5).map((analysis: Analysis) => (
                   <div
                     key={analysis.id}
                     className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">{analysis.ticker || analysis.metadata?.ticker}</span>
+                        <span className="font-semibold">{analysis.ticker || analysis.analysis_data?.metadata?.ticker}</span>
                         <Badge variant="outline" className="text-xs">
-                          {analysis.filing_type || analysis.metadata?.filing_type}
+                          {analysis.filing_type || analysis.analysis_data?.metadata?.filing_type}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
@@ -119,12 +121,12 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={getRecommendationColor(analysis.investment_signal?.recommendation)}>
-                        {formatRecommendation(analysis.investment_signal?.recommendation)}
+                      <Badge className={getRecommendationColor(analysis.analysis_data?.investment_signal?.recommendation)}>
+                        {formatRecommendation(analysis.analysis_data?.investment_signal?.recommendation)}
                       </Badge>
-                      {analysis.investment_signal?.overall_score && (
+                      {analysis.analysis_data?.investment_signal?.overall_score && (
                         <div className="text-sm font-medium">
-                          {analysis.investment_signal.overall_score}/100
+                          {analysis.analysis_data.investment_signal.overall_score}/100
                         </div>
                       )}
                     </div>
@@ -170,7 +172,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{company.ticker}</span>
                         <Badge variant="secondary" className="text-xs">
-                          {company.analyses_count} analyses
+                          {company.analysis_count} analyses
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
