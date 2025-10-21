@@ -3,14 +3,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useDashboardStats, useTrendingCompanies, useLatestAnalyses } from '@/hooks/use-api';
-import { TrendingUp, TrendingDown, Building2, FileText, Brain, ArrowRight } from 'lucide-react';
+import { useDashboardStats, useLatestFilings, useLatestAnalyses } from '@/hooks/use-api';
+import { Building2, FileText, Brain, ArrowRight, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import type { Analysis } from '@/types/api';
 
 export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
-  const { data: trending, isLoading: trendingLoading } = useTrendingCompanies({ limit: 5, period: '7d' });
+  const { data: filingsData, isLoading: filingsLoading } = useLatestFilings({ limit: 5 });
+  const latestFilings = filingsData?.data || [];
   const { data: latestAnalysesData, isLoading: analysesLoading } = useLatestAnalyses(5);
   const latestAnalyses = latestAnalysesData?.pages[0]?.data || [];
 
@@ -153,63 +154,61 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Trending Companies</CardTitle>
-            <CardDescription>Most analyzed companies in the last 7 days</CardDescription>
+            <CardTitle>Latest Filings</CardTitle>
+            <CardDescription>Most recent SEC filings from tracked companies</CardDescription>
           </CardHeader>
           <CardContent>
-            {trendingLoading ? (
+            {filingsLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="h-16 animate-pulse bg-muted rounded" />
                 ))}
               </div>
-            ) : trending && trending.length > 0 ? (
+            ) : latestFilings && latestFilings.length > 0 ? (
               <div className="space-y-3">
-                {trending.map((company) => (
-                  <div
-                    key={company.ticker}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors"
+                {latestFilings.map((filing) => (
+                  <Link
+                    key={filing.id}
+                    href={filing.has_analysis ? `/dashboard/companies/${filing.ticker}` : filing.filing_url}
+                    target={filing.has_analysis ? '_self' : '_blank'}
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{company.ticker}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {company.analysis_count} analyses
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {company.company_title}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {company.latest_recommendation && (
-                        <Badge className={getRecommendationColor(company.latest_recommendation)}>
-                          {formatRecommendation(company.latest_recommendation)}
-                        </Badge>
-                      )}
-                      {company.avg_score && (
-                        <div className="flex items-center gap-1">
-                          {company.avg_score >= 50 ? (
-                            <TrendingUp className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <TrendingDown className="h-4 w-4 text-red-600" />
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors cursor-pointer">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{filing.ticker}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {filing.filing_type}
+                          </Badge>
+                          {filing.has_analysis && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Brain className="h-3 w-3 mr-1" />
+                              Analyzed
+                            </Badge>
                           )}
-                          <span className="text-sm font-medium">{company.avg_score.toFixed(0)}</span>
                         </div>
-                      )}
+                        <p className="text-sm text-muted-foreground truncate">
+                          {filing.company_title}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          <span>{new Date(filing.filing_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">
-                No trending companies yet
+                No filings available yet
               </p>
             )}
             <div className="mt-4">
-              <Link href="/dashboard/companies">
+              <Link href="/dashboard/filings">
                 <Button variant="outline" className="w-full">
-                  Explore Companies
+                  View All Filings
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>

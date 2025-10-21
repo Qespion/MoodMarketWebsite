@@ -109,3 +109,10 @@ export const useTrendingCompanies = (params?: { limit?: number; period?: string 
     queryFn: () => trendingApi.getCompanies(params).then((res) => res.data),
   });
 };
+
+export const useLatestFilings = (params?: { limit?: number; sort?: string; order?: string }) => {
+  return useQuery({
+    queryKey: ['filings', 'latest', params],
+    queryFn: () => filingsApi.getAll({ ...params, sort: params?.sort || 'filing_date', order: params?.order || 'DESC' }).then((res) => res.data),
+  });
+};

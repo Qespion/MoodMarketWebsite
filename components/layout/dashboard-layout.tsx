@@ -23,13 +23,16 @@ import {
   Moon,
   Sun,
   LogOut,
+  Brain,
+  Folder,
 } from 'lucide-react';
 import { useAuthStore, useThemeStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Analyses', href: '/dashboard/analyses', icon: FileText },
+  { name: 'Analyses', href: '/dashboard/analyses', icon: Brain },
+  { name: 'Filings', href: '/dashboard/filings', icon: Folder },
   { name: 'Companies', href: '/dashboard/companies', icon: Building2 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
