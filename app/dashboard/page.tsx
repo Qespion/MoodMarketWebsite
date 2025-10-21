@@ -105,32 +105,34 @@ export default function DashboardPage() {
             ) : latestAnalyses && latestAnalyses.length > 0 ? (
               <div className="space-y-3">
                 {latestAnalyses.slice(0, 5).map((analysis: Analysis) => (
-                  <div
+                  <Link
                     key={analysis.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors"
+                    href={`/dashboard/companies/${analysis.ticker || analysis.analysis_data?.metadata?.ticker}#analysis-${analysis.id}`}
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{analysis.ticker || analysis.analysis_data?.metadata?.ticker}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {analysis.filing_type || analysis.analysis_data?.metadata?.filing_type}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {analysis.company_title}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={getRecommendationColor(analysis.analysis_data?.investment_signal?.recommendation)}>
-                        {formatRecommendation(analysis.analysis_data?.investment_signal?.recommendation)}
-                      </Badge>
-                      {analysis.analysis_data?.investment_signal?.overall_score && (
-                        <div className="text-sm font-medium">
-                          {analysis.analysis_data.investment_signal.overall_score}/100
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors cursor-pointer">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{analysis.ticker || analysis.analysis_data?.metadata?.ticker}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {analysis.filing_type || analysis.analysis_data?.metadata?.filing_type}
+                          </Badge>
                         </div>
-                      )}
+                        <p className="text-sm text-muted-foreground truncate">
+                          {analysis.company_title}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={getRecommendationColor(analysis.analysis_data?.investment_signal?.recommendation)}>
+                          {formatRecommendation(analysis.analysis_data?.investment_signal?.recommendation)}
+                        </Badge>
+                        {analysis.analysis_data?.investment_signal?.overall_score && (
+                          <div className="text-sm font-medium">
+                            {analysis.analysis_data.investment_signal.overall_score}/100
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (

@@ -64,10 +64,14 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+    }) + ' ' + date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -195,7 +199,7 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
             </Card>
           ) : (
             analyses.map((analysis: Analysis) => (
-              <Card key={analysis.id}>
+              <Card key={analysis.id} id={`analysis-${analysis.id}`}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
@@ -212,7 +216,7 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
                       </div>
                       <CardDescription className="flex items-center gap-2">
                         <Calendar className="h-3 w-3" />
-                        {formatDate(analysis.filing_date)}
+                        {formatDate(analysis.filing_date || analysis.created_at)}
                       </CardDescription>
                     </div>
                     <Badge

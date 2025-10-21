@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { useLatestAnalyses } from '@/hooks/use-api';
 import { TrendingUp, TrendingDown, Calendar, ArrowDown } from 'lucide-react';
 import type { Analysis } from '@/types/api';
+import { useRouter } from 'next/navigation';
 
 export default function AnalysesPage() {
+  const router = useRouter();
   const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useLatestAnalyses(20);
 
   const getRecommendationColor = (recommendation?: string) => {
@@ -34,10 +36,14 @@ export default function AnalysesPage() {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+    }) + ' ' + date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -143,13 +149,13 @@ export default function AnalysesPage() {
                         </p>
                       </div>
                     )}
-                    {analysis.filing_date && (
+                    {(analysis.filing_date || analysis.created_at) && (
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Filing Date</p>
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">
-                            {formatDate(analysis.filing_date)}
+                            {formatDate(analysis.filing_date || analysis.created_at)}
                           </span>
                         </div>
                       </div>
@@ -296,7 +302,11 @@ export default function AnalysesPage() {
                     )}
 
                   <div className="flex items-center justify-end pt-4 border-t">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => router.push(`/dashboard/companies/${analysis.ticker || analysis.analysis_data?.metadata?.ticker}`)}
+                    >
                       View Details
                     </Button>
                   </div>
