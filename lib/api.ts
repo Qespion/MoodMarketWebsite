@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_BASE_URL } from './config';
+import { API_BASE_URL, IS_BUILD_TIME } from './config';
 import type {
   Company,
   Filing,
@@ -16,12 +16,18 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
+  timeout: IS_BUILD_TIME ? 5000 : 30000, // Shorter timeout during build
 });
 
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    // During build time, don't fail on API errors
+    if (IS_BUILD_TIME) {
+      console.warn('API call failed during build time:', error.message);
+      return Promise.reject(error);
+    }
+
     if (error.response) {
       console.error('API Error:', error.response.status, error.response.data);
     } else if (error.request) {
