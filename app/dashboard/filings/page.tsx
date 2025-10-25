@@ -3,7 +3,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useFilings, useAnalyses } from '@/hooks/use-api';
+import { useFilings, useAnalyses, useUserFollowsFilings } from '@/hooks/use-api';
+import { useAuthStore } from '@/lib/store';
 import { Calendar, Brain, ExternalLink, FileText, Filter, TrendingUp, TrendingDown, X } from 'lucide-react';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -22,18 +23,62 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function FilingsPage() {
   const [filingType, setFilingType] = useState<string>('all');
   const [hasAnalysis, setHasAnalysis] = useState<string>('all');
+  const [timeframe, setTimeframe] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [selectedFilingId, setSelectedFilingId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  const { data, isLoading } = useFilings({
+  const [viewMode, setViewMode] = useState<'all' | 'following'>('all');
+
+  const user = useAuthStore((s) => s.user);
+
+  const getDateRange = (tf: string) => {
+    const to = new Date();
+    const toDateStr = to.toISOString().split('T')[0];
+    if (tf === 'all') return { from: undefined as string | undefined, to: undefined as string | undefined };
+    let days = 0;
+    switch (tf) {
+      case 'last_day':
+        days = 1;
+        break;
+      case 'last_week':
+        days = 7;
+        break;
+      case 'last_month':
+        days = 30;
+        break;
+      case 'last_year':
+        days = 365;
+        break;
+      default:
+        return { from: undefined as string | undefined, to: undefined as string | undefined };
+    }
+    const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const fromDateStr = from.toISOString().split('T')[0];
+    return { from: fromDateStr, to: toDateStr };
+  };
+
+  const { from: computedFromDate, to: computedToDate } = getDateRange(timeframe);
+
+  const allQuery = useFilings({
     page,
     limit: 20,
     filing_type: filingType !== 'all' ? filingType : undefined,
+    has_analysis: hasAnalysis === 'true' ? true : hasAnalysis === 'false' ? false : undefined,
+    from_date: computedFromDate,
+    to_date: computedToDate,
+  });
+
+  const followsQuery = useUserFollowsFilings(user?.id, {
+    page,
+    limit: 20,
+    filing_type: filingType !== 'all' ? filingType : undefined,
+    from_date: computedFromDate,
+    to_date: computedToDate,
     has_analysis: hasAnalysis === 'true' ? true : hasAnalysis === 'false' ? false : undefined,
   });
 
@@ -41,10 +86,17 @@ export default function FilingsPage() {
     filing_id: selectedFilingId || undefined,
   });
 
-  const filings = data?.data || [];
-  const pagination = data?.pagination;
+  const filings = viewMode === 'all' ? allQuery.data?.data || [] : followsQuery.data?.data || [];
+  const isLoading = viewMode === 'all' ? allQuery.isLoading : followsQuery.isLoading;
+  const pagination = viewMode === 'all' ? allQuery.data?.pagination : followsQuery.data?.pagination;
   const selectedAnalysis = analysesData?.data?.[0];
-  
+
+  // Narrowed helper values for type-safety and fewer repeated calls
+  const investmentSignal = selectedAnalysis
+    ? (selectedAnalysis.investment_signal || selectedAnalysis.analysis_data?.investment_signal)
+    : undefined;
+  const metadata = selectedAnalysis ? (selectedAnalysis.metadata || selectedAnalysis.analysis_data?.metadata) : undefined;
+
   const getInvestmentSignal = (analysis: Analysis | undefined) => {
     return analysis?.investment_signal || analysis?.analysis_data?.investment_signal;
   };
@@ -57,12 +109,17 @@ export default function FilingsPage() {
     return analysis?.analysis_data?.executive_summary;
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+    }) + ' ' + date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -96,10 +153,22 @@ export default function FilingsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">SEC Filings</h1>
-        <p className="text-muted-foreground">
-          Browse recent SEC filings from tracked companies
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">SEC Filings</h1>
+            <p className="text-muted-foreground">
+              {viewMode === 'all' ? 'Browse recent SEC filings from tracked companies' : 'Filings from companies you follow'}
+            </p>
+          </div>
+          <div>
+            <Tabs defaultValue={viewMode} onValueChange={(val) => { setViewMode(val as 'all' | 'following'); setPage(1); }}>
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                {user ? <TabsTrigger value="following">Following</TabsTrigger> : null}
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
       </div>
 
       <Card>
@@ -128,7 +197,7 @@ export default function FilingsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Filing Type</label>
               <Select value={filingType} onValueChange={(value) => { setFilingType(value); setPage(1); }}>
@@ -145,6 +214,7 @@ export default function FilingsPage() {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Analysis Status</label>
               <Select value={hasAnalysis} onValueChange={(value) => { setHasAnalysis(value); setPage(1); }}>
@@ -157,6 +227,30 @@ export default function FilingsPage() {
                   <SelectItem value="false">Not analyzed</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Timeframe</label>
+              <Select value={timeframe} onValueChange={(val) => { setTimeframe(val); setPage(1); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All timeframes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All time</SelectItem>
+                  <SelectItem value="last_day">Last day</SelectItem>
+                  <SelectItem value="last_week">Last week</SelectItem>
+                  <SelectItem value="last_month">Last month</SelectItem>
+                  <SelectItem value="last_year">Last year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 col-span-3">
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => { setTimeframe('all'); setFilingType('all'); setHasAnalysis('all'); setPage(1); }}>
+                  Clear All
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -182,7 +276,7 @@ export default function FilingsPage() {
         <>
           <div className="space-y-4">
             {filings.map((filing: Filing) => (
-              <Card key={filing.id} className="hover:shadow-md transition-shadow">
+              <Card key={filing.id} className={`hover:shadow-md transition-shadow ${filing.has_analysis ? 'cursor-pointer' : ''}`} onClick={filing.has_analysis ? () => handleViewAnalysis(filing.id) : undefined}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1 flex-1">
@@ -199,11 +293,7 @@ export default function FilingsPage() {
                             Analyzed
                           </Badge>
                         )}
-                        {filing.is_latest_10k && (
-                          <Badge variant="secondary" className="text-xs">
-                            Latest 10-K
-                          </Badge>
-                        )}
+
                       </div>
                       <CardDescription className="text-base">
                         {filing.company_title}
@@ -287,25 +377,25 @@ export default function FilingsPage() {
       )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedAnalysis ? (
                 <div className="flex items-center gap-2">
-                  <span>{selectedAnalysis.ticker || getMetadata(selectedAnalysis)?.ticker}</span>
+                  <span>{selectedAnalysis.ticker || metadata?.ticker}</span>
                   <Badge variant="outline">
-                    {selectedAnalysis.filing_type || getMetadata(selectedAnalysis)?.filing_type}
+                    {selectedAnalysis.filing_type || metadata?.filing_type}
                   </Badge>
-                  {getMetadata(selectedAnalysis)?.fiscal_year && (
+                  {metadata?.fiscal_year && (
                     <Badge variant="secondary">
-                      FY{getMetadata(selectedAnalysis)?.fiscal_year}
-                      {getMetadata(selectedAnalysis)?.fiscal_quarter && ` Q${getMetadata(selectedAnalysis)?.fiscal_quarter}`}
+                      FY{metadata.fiscal_year}
+                      {metadata?.fiscal_quarter && ` Q${metadata.fiscal_quarter}`}
                     </Badge>
                   )}
                   <Badge
-                    className={`${getRecommendationColor(getInvestmentSignal(selectedAnalysis)?.recommendation)} text-sm px-3 py-1`}
+                    className={`${getRecommendationColor(investmentSignal?.recommendation)} text-sm px-3 py-1`}
                   >
-                    {formatRecommendation(getInvestmentSignal(selectedAnalysis)?.recommendation)}
+                    {formatRecommendation(investmentSignal?.recommendation)}
                   </Badge>
                 </div>
               ) : (
@@ -326,86 +416,86 @@ export default function FilingsPage() {
           ) : selectedAnalysis ? (
             <div className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {getInvestmentSignal(selectedAnalysis)?.overall_score !== undefined && (
+                {investmentSignal?.overall_score !== undefined && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Overall Score</p>
                     <div className="flex items-center gap-1">
-                      {getInvestmentSignal(selectedAnalysis)!.overall_score! >= 50 ? (
+                      {investmentSignal!.overall_score! >= 50 ? (
                         <TrendingUp className="h-4 w-4 text-green-600" />
                       ) : (
                         <TrendingDown className="h-4 w-4 text-red-600" />
                       )}
                       <span className="text-lg font-bold">
-                        {getInvestmentSignal(selectedAnalysis)!.overall_score}/100
+                        {investmentSignal!.overall_score}/100
                       </span>
                     </div>
                   </div>
                 )}
-                {getInvestmentSignal(selectedAnalysis)?.confidence_pct !== undefined && (
+                {investmentSignal?.confidence_pct !== undefined && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Confidence</p>
                     <p className="text-lg font-bold">
-                      {getInvestmentSignal(selectedAnalysis)!.confidence_pct}%
+                      {investmentSignal!.confidence_pct}%
                     </p>
                   </div>
                 )}
-                {getInvestmentSignal(selectedAnalysis)?.risk_level && (
+                {investmentSignal?.risk_level && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Risk Level</p>
                     <p className="text-lg font-bold capitalize">
-                      {getInvestmentSignal(selectedAnalysis)!.risk_level}
+                      {investmentSignal!.risk_level}
                     </p>
                   </div>
                 )}
-                {getInvestmentSignal(selectedAnalysis)?.financial_health_score !== undefined && (
+                {investmentSignal?.financial_health_score !== undefined && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Financial Health</p>
                     <p className="text-lg font-bold">
-                      {getInvestmentSignal(selectedAnalysis)!.financial_health_score}/100
+                      {investmentSignal!.financial_health_score}/100
                     </p>
                   </div>
                 )}
-                {(getMetadata(selectedAnalysis)?.filing_date || selectedAnalysis.filing_date || selectedAnalysis.created_at) && (
+                {(selectedAnalysis.filing_date || selectedAnalysis.created_at) && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Filing Date</p>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium">
-                        {formatDate(getMetadata(selectedAnalysis)?.filing_date || selectedAnalysis.filing_date || selectedAnalysis.created_at)}
+                        {formatDate(selectedAnalysis.filing_date || selectedAnalysis.created_at)}
                       </span>
                     </div>
                   </div>
                 )}
               </div>
 
-              {(getInvestmentSignal(selectedAnalysis)?.target_timeframe || getInvestmentSignal(selectedAnalysis)?.valuation_assessment || getInvestmentSignal(selectedAnalysis)?.event_significance) && (
+              {(investmentSignal?.target_timeframe || investmentSignal?.valuation_assessment || investmentSignal?.event_significance) && (
                 <div className="grid grid-cols-3 gap-4 border-t pt-4">
-                  {getInvestmentSignal(selectedAnalysis)?.target_timeframe && (
+                  {investmentSignal?.target_timeframe && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Target Timeframe</p>
-                      <p className="text-sm font-medium">{getInvestmentSignal(selectedAnalysis)!.target_timeframe}</p>
+                      <p className="text-sm font-medium">{investmentSignal!.target_timeframe}</p>
                     </div>
                   )}
-                  {getInvestmentSignal(selectedAnalysis)?.valuation_assessment && (
+                  {investmentSignal?.valuation_assessment && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Valuation</p>
-                      <p className="text-sm font-medium capitalize">{getInvestmentSignal(selectedAnalysis)!.valuation_assessment.replace('_', ' ')}</p>
+                      <p className="text-sm font-medium capitalize">{investmentSignal!.valuation_assessment.replace('_', ' ')}</p>
                     </div>
                   )}
-                  {getInvestmentSignal(selectedAnalysis)?.event_significance && (
+                  {investmentSignal?.event_significance && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Event Significance</p>
-                      <p className="text-sm font-medium capitalize">{getInvestmentSignal(selectedAnalysis)!.event_significance}</p>
+                      <p className="text-sm font-medium capitalize">{investmentSignal!.event_significance}</p>
                     </div>
                   )}
                 </div>
               )}
 
-              {getInvestmentSignal(selectedAnalysis)?.investment_thesis && (
+              {investmentSignal?.investment_thesis && (
                 <div className="border-t pt-4">
                   <h4 className="font-semibold mb-2">Investment Thesis</h4>
                   <p className="text-sm text-muted-foreground">
-                    {getInvestmentSignal(selectedAnalysis)!.investment_thesis}
+                    {investmentSignal!.investment_thesis}
                   </p>
                 </div>
               )}
@@ -419,13 +509,13 @@ export default function FilingsPage() {
                 </div>
               )}
 
-              {getInvestmentSignal(selectedAnalysis)?.strengths && getInvestmentSignal(selectedAnalysis)!.strengths!.length > 0 && (
+              {investmentSignal?.strengths && investmentSignal!.strengths!.length > 0 && (
                 <div className="border-t pt-4">
                   <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400">
                     Strengths
                   </h4>
                   <ul className="space-y-1">
-                    {getInvestmentSignal(selectedAnalysis)!.strengths!.map((strength: string, idx: number) => (
+                    {investmentSignal!.strengths!.map((strength: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                         <span className="text-green-600 dark:text-green-400 mt-1">✓</span>
                         <span>{strength}</span>
@@ -435,13 +525,13 @@ export default function FilingsPage() {
                 </div>
               )}
 
-              {getInvestmentSignal(selectedAnalysis)?.weaknesses && getInvestmentSignal(selectedAnalysis)!.weaknesses!.length > 0 && (
+              {investmentSignal?.weaknesses && investmentSignal!.weaknesses!.length > 0 && (
                 <div className="border-t pt-4">
                   <h4 className="font-semibold mb-2 text-orange-600 dark:text-orange-400">
                     Weaknesses
                   </h4>
                   <ul className="space-y-1">
-                    {getInvestmentSignal(selectedAnalysis)!.weaknesses!.map((weakness: string, idx: number) => (
+                    {investmentSignal!.weaknesses!.map((weakness: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                         <span className="text-orange-600 dark:text-orange-400 mt-1">!</span>
                         <span>{weakness}</span>
@@ -451,13 +541,13 @@ export default function FilingsPage() {
                 </div>
               )}
 
-              {getInvestmentSignal(selectedAnalysis)?.key_catalysts && getInvestmentSignal(selectedAnalysis)!.key_catalysts!.length > 0 && (
+              {investmentSignal?.key_catalysts && investmentSignal!.key_catalysts!.length > 0 && (
                 <div className="border-t pt-4">
                   <h4 className="font-semibold mb-2 text-blue-600 dark:text-blue-400">
                     Key Catalysts
                   </h4>
                   <ul className="space-y-1">
-                    {getInvestmentSignal(selectedAnalysis)!.key_catalysts!.map((catalyst: string, idx: number) => (
+                    {investmentSignal!.key_catalysts!.map((catalyst: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                         <span className="text-blue-600 dark:text-blue-400 mt-1">▲</span>
                         <span>{catalyst}</span>
@@ -467,13 +557,13 @@ export default function FilingsPage() {
                 </div>
               )}
 
-              {getInvestmentSignal(selectedAnalysis)?.key_risks && getInvestmentSignal(selectedAnalysis)!.key_risks!.length > 0 && (
+              {investmentSignal?.key_risks && investmentSignal!.key_risks!.length > 0 && (
                 <div className="border-t pt-4">
                   <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400">
                     Key Risks
                   </h4>
                   <ul className="space-y-1">
-                    {getInvestmentSignal(selectedAnalysis)!.key_risks!.map((risk: string, idx: number) => (
+                    {investmentSignal!.key_risks!.map((risk: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                         <span className="text-red-600 dark:text-red-400 mt-1">⚠</span>
                         <span>{risk}</span>
@@ -483,14 +573,13 @@ export default function FilingsPage() {
                 </div>
               )}
 
-              {getInvestmentSignal(selectedAnalysis)?.key_drivers &&
-                getInvestmentSignal(selectedAnalysis)!.key_drivers!.length > 0 && (
+              {investmentSignal?.key_drivers && investmentSignal!.key_drivers!.length > 0 && (
                   <div className="border-t pt-4">
                     <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400">
                       Key Drivers
                     </h4>
                     <ul className="space-y-1">
-                      {getInvestmentSignal(selectedAnalysis)!.key_drivers!.map((driver: string, idx: number) => (
+                      {investmentSignal!.key_drivers!.map((driver: string, idx: number) => (
                         <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                           <span className="text-green-600 dark:text-green-400 mt-1">•</span>
                           <span>{driver}</span>
@@ -500,14 +589,13 @@ export default function FilingsPage() {
                   </div>
                 )}
 
-              {getInvestmentSignal(selectedAnalysis)?.concerns &&
-                getInvestmentSignal(selectedAnalysis)!.concerns!.length > 0 && (
+              {investmentSignal?.concerns && investmentSignal!.concerns!.length > 0 && (
                   <div className="border-t pt-4">
                     <h4 className="font-semibold mb-2 text-red-600 dark:text-red-400">
                       Concerns
                     </h4>
                     <ul className="space-y-1">
-                      {getInvestmentSignal(selectedAnalysis)!.concerns!.map((concern: string, idx: number) => (
+                      {investmentSignal!.concerns!.map((concern: string, idx: number) => (
                         <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                           <span className="text-red-600 dark:text-red-400 mt-1">•</span>
                           <span>{concern}</span>

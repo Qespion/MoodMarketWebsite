@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -70,45 +71,41 @@ export default function CompaniesPage() {
         <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {companies.map((company: Company) => (
-              <Card key={company.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <CardTitle className="text-xl truncate">{company.ticker}</CardTitle>
-                      <CardDescription className="text-sm line-clamp-2">
-                        {company.title}
-                      </CardDescription>
+              <Link key={company.id} href={`/dashboard/companies/${company.ticker}`}>
+                <Card className="hover:shadow-md hover:scale-105 transition-all duration-200 cursor-pointer">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <CardTitle className="text-xl truncate">{company.ticker}</CardTitle>
+                        <CardDescription className="text-sm line-clamp-2">
+                          {company.title}
+                        </CardDescription>
+                      </div>
+                      <Building2 className="h-5 w-5 text-muted-foreground flex-shrink-0 ml-2" />
                     </div>
-                    <Building2 className="h-5 w-5 text-muted-foreground flex-shrink-0 ml-2" />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-1">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{company.filings_count || 0}</span>
-                      <span className="text-muted-foreground">filings</span>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{company.filings_count || 0}</span>
+                        <span className="text-muted-foreground">filings</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Brain className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{company.analyses_count || 0}</span>
+                        <span className="text-muted-foreground">analyses</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Brain className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{company.analyses_count || 0}</span>
-                      <span className="text-muted-foreground">analyses</span>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <Badge variant="outline" className="text-xs">
-                      CIK: {company.cik}
-                    </Badge>
-                    <Button variant="ghost" size="sm" asChild>
-                      <a href={`/dashboard/companies/${company.ticker}`}>
-                        View Details
-                        <TrendingUp className="ml-2 h-3 w-3" />
-                      </a>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <Badge variant="outline" className="text-xs">
+                        CIK: {company.cik}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
 

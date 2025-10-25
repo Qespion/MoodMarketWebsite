@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { companiesApi, filingsApi, analysesApi, dashboardApi, searchApi, trendingApi } from '@/lib/api';
+import { companiesApi, filingsApi, analysesApi, dashboardApi, searchApi, trendingApi, usersApi } from '@/lib/api';
 import type { Analysis } from '@/types/api';
 
 export const useCompanies = (params?: { page?: number; limit?: number; search?: string }) => {
@@ -32,6 +32,12 @@ export const useFilings = (params?: {
   ticker?: string;
   filing_type?: string;
   has_analysis?: boolean;
+  from_date?: string;
+  to_date?: string;
+  is_latest_10k?: boolean;
+  is_latest_10q?: boolean;
+  sort?: string;
+  order?: 'ASC' | 'DESC';
 }) => {
   return useQuery({
     queryKey: ['filings', params],
@@ -50,9 +56,20 @@ export const useFiling = (id: number) => {
 export const useAnalyses = (params?: {
   page?: number;
   limit?: number;
+  filing_id?: number;
+  company_id?: number;
   ticker?: string;
   filing_type?: string;
+  model_used?: string;
   recommendation?: string;
+  risk_level?: string;
+  min_confidence?: number;
+  min_score?: number;
+  has_guidance?: boolean;
+  from_date?: string;
+  to_date?: string;
+  sort?: string;
+  order?: 'ASC' | 'DESC';
 }) => {
   return useQuery({
     queryKey: ['analyses', params],
@@ -110,9 +127,44 @@ export const useTrendingCompanies = (params?: { limit?: number; period?: string 
   });
 };
 
-export const useLatestFilings = (params?: { limit?: number; sort?: string; order?: string }) => {
+export const useLatestFilings = (params?: { limit?: number; sort?: string; order?: 'ASC' | 'DESC' }) => {
   return useQuery({
     queryKey: ['filings', 'latest', params],
-    queryFn: () => filingsApi.getAll({ ...params, sort: params?.sort || 'filing_date', order: params?.order || 'DESC' }).then((res) => res.data),
+    queryFn: () => filingsApi.getAll({ ...params, sort: params?.sort || 'filing_date', order: (params?.order as 'ASC' | 'DESC') || 'DESC' }).then((res) => res.data),
+  });
+};
+
+export const useUserFollowsFilings = (userId?: number | string, params?: {
+  page?: number;
+  limit?: number;
+  filing_type?: string;
+  from_date?: string;
+  to_date?: string;
+  has_analysis?: boolean;
+  is_latest_10k?: boolean;
+  is_latest_10q?: boolean;
+  sort?: string;
+  order?: 'ASC' | 'DESC';
+}) => {
+  return useQuery({
+    queryKey: ['users', userId, 'follows', 'filings', params],
+    queryFn: () => usersApi.getFollowsFilings(userId || '', params).then((res) => res.data),
+    enabled: !!userId,
+  });
+};
+
+export const useUserFollowsAnalyses = (userId?: number | string, params?: {
+  page?: number;
+  limit?: number;
+  filing_id?: number;
+  ticker?: string;
+  filing_type?: string;
+  recommendation?: string;
+  min_confidence?: number;
+}) => {
+  return useQuery({
+    queryKey: ['users', userId, 'follows', 'analyses', params],
+    queryFn: () => usersApi.getFollowsAnalyses(userId || '', params).then((res) => res.data),
+    enabled: !!userId,
   });
 };

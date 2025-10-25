@@ -101,6 +101,7 @@ export interface AnalysisData {
   metadata: {
     ticker: string;
     filing_type: string;
+    filing_date?: string;
     fiscal_year?: string;
     fiscal_quarter?: string;
   };
@@ -128,6 +129,7 @@ export interface Analysis {
   metadata?: {
     ticker: string;
     filing_type: string;
+    filing_date?: string;
     fiscal_year?: string;
     fiscal_quarter?: string;
   };

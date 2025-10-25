@@ -116,6 +116,37 @@ export const analysesApi = {
   }) => apiClient.get('/analyses/stats', { params }),
 };
 
+export const usersApi = {
+  getFollowsFilings: (userId: number | string, params?: {
+    page?: number;
+    limit?: number;
+    filing_type?: string;
+    from_date?: string;
+    to_date?: string;
+    has_analysis?: boolean;
+    sort?: string;
+    order?: 'ASC' | 'DESC';
+  }) => apiClient.get<PaginatedResponse<Filing>>(`/users/${userId}/follows/filings`, { params }),
+
+  getFollowsAnalyses: (userId: number | string, params?: {
+    page?: number;
+    limit?: number;
+    filing_id?: number;
+    ticker?: string;
+    filing_type?: string;
+    recommendation?: string;
+    min_confidence?: number;
+    confidence_min?: number;
+    financial_health_min?: number;
+    from_date?: string;
+    to_date?: string;
+    filing_from_date?: string;
+    filing_to_date?: string;
+    sort?: string;
+    order?: 'ASC' | 'DESC';
+  }) => apiClient.get<PaginatedResponse<Analysis>>(`/users/${userId}/follows/analyses`, { params }),
+};
+
 export const dashboardApi = {
   getStats: () => apiClient.get<DashboardStats>('/dashboard'),
 };
